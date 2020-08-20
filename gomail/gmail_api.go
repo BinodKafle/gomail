@@ -1,19 +1,15 @@
 package gomail
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html/template"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
-	"reflect"
 
-	"github.com/gin-gonic/gin"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -65,20 +61,6 @@ func tokenFromFile(file string) (*oauth2.Token, error) {
 	return tok, err
 }
 
-// Saves a token to a file path.
-func saveToken(path string, token *oauth2.Token) {
-	fmt.Printf("Saving credential file to: %s\n", path)
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
-		log.Fatalf("Unable to cache oauth token: %v", err)
-	}
-	defer f.Close()
-	err = json.NewEncoder(f).Encode(token)
-	if err != nil {
-		log.Fatalf("Unable to encode token")
-	}
-}
-
 // InitializeGmailAPI initialize gmail api
 func InitializeGmailAPI() {
 	credentialFilePath, err := filepath.Abs("./oauth_credentials.json")
@@ -110,53 +92,22 @@ func InitializeGmailAPI() {
 
 	GmailService = srv
 	if GmailService != nil {
-		fmt.Println("Email service is initialized \n")
+		fmt.Println("email service is initialized")
 	}
 }
 
-func GetAuthorizationCodeCallback(c *gin.Context) {
+func SendEmail(to string, data interface{}, template string) (bool, error) {
 
-	code := c.Request.FormValue("code")
-	if code == "" {
-		log.Println("Unable to receive code")
-		return
-	}
-
-	log.Println("checking code", code)
-	log.Printf("chekcing authCOnfig %v", authConfig)
-
-	tok, err := authConfig.Exchange(context.Background(), code)
-
+	emailBody, err := parseTemplate(template, data)
 	if err != nil {
-		log.Printf("Unable to retrieve token from web: %v", err)
-	}
-
-	tokFile, err := filepath.Abs("./token.json")
-	saveToken(tokFile, tok)
-	// InitializeGmailAPI()
-}
-
-func SendEmail(to string, emailSubject string, emailSubjectData interface{}, emailSubjectTemplateName string, emailBodyData interface{}, emailBodyTemplateBodyName string) (bool, error) {
-
-	isEmailSubjectEmpty := isInterfaceEmpty(emailSubjectData)
-	var err error
-	if !isEmailSubjectEmpty {
-		emailSubject, err = parseTemplate(emailSubjectTemplateName, emailSubjectData)
-		if err != nil {
-			return false, errors.New("unable to parse email subject template")
-		}
-	}
-
-	emailBody, err := parseTemplate(emailBodyTemplateBodyName, emailBodyData)
-	if err != nil {
-		return false, errors.New("unable to parse email body template")
+		return false, errors.New("unable to parse template")
 	}
 
 	var message gmail.Message
 
 	mime := "MIME-version: 1.0;\nContent-Type: text/plain; charset=\"UTF-8\";\n\n"
 	emailTo := "To: " + to + "\r\n"
-	subject := "Subject: " + emailSubject + "!\n"
+	subject := "Subject: " + "Test email" + "!\n"
 	msg := []byte(emailTo + subject + mime + "\n" + emailBody)
 
 	message.Raw = base64.URLEncoding.EncodeToString(msg)
@@ -169,25 +120,4 @@ func SendEmail(to string, emailSubject string, emailSubjectData interface{}, ema
 		fmt.Println("Message sent!")
 	}
 	return true, nil
-}
-
-func parseTemplate(templateFileName string, data interface{}) (string, error) {
-	templatePath, err := filepath.Abs(fmt.Sprintf("api/utils/email_templates/%s", templateFileName))
-	if err != nil {
-		return "", errors.New("invalid template name")
-	}
-	t, err := template.ParseFiles(templatePath)
-	if err != nil {
-		return "", err
-	}
-	buf := new(bytes.Buffer)
-	if err = t.Execute(buf, data); err != nil {
-		return "", err
-	}
-	body := buf.String()
-	return body, nil
-}
-
-func isInterfaceEmpty(x interface{}) bool {
-	return x == reflect.Zero(reflect.TypeOf(x)).Interface()
 }
