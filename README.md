@@ -1,6 +1,11 @@
 ## How to use this project
 Clone the repo
 
+### Download project dependencies
+```
+go mod download
+```
+
 ### Setting up environment
 - Copy `.env.example` file and paste it as `.env` in the same path
 - In `.env` file Add your email and password and leave other values as it is
