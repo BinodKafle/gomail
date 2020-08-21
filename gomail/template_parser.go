@@ -9,7 +9,7 @@ import (
 )
 
 func parseTemplate(templateFileName string, data interface{}) (string, error) {
-	templatePath, err := filepath.Abs(fmt.Sprintf("email_templates/%s", templateFileName))
+	templatePath, err := filepath.Abs(fmt.Sprintf("gomail/email_templates/%s", templateFileName))
 	if err != nil {
 		return "", errors.New("invalid template name")
 	}
